@@ -15,7 +15,7 @@ from utag.types import Path, Array, AnnData
 from utag.utils import sparse_matrix_dstack
 
 
-def utag(
+def utag_mod(
     adata: AnnData,
     channels_to_use: tp.Sequence[str] = None,
     slide_key: tp.Optional[str] = "Slide",
@@ -34,6 +34,7 @@ def utag(
     parc_kwargs: tp.Dict[str, tp.Any] = None,
     parallel: bool = True,
     processes: int = None,
+    sample_rate: float = 1.0
 ) -> AnnData:
     """
     Discover tissue architechture in single-cell imaging data
@@ -158,8 +159,9 @@ def utag(
                 [x.obsp["spatial_distances"] for x in ad_list]
             )
     else:
+        print('no slide key', flush=True)
         sq.gr.spatial_neighbors(ad, radius=max_dist, coord_type="generic", set_diag=True)
-        ad_result = custom_message_passing(ad, mode=normalization_mode)
+        ad_result = custom_message_passing(ad, mode=normalization_mode, sample_rate=sample_rate)
 
     if apply_clustering:
         if "n_comps" in pca_kwargs:
@@ -223,14 +225,36 @@ def _parallel_message_pass(
     coord_type: str,
     set_diag: bool,
     mode: str,
+    sample_rate: float
 ):
     sq.gr.spatial_neighbors(ad, radius=radius, coord_type=coord_type, set_diag=set_diag)
-    ad = custom_message_passing(ad, mode=mode)
+    ad = custom_message_passing(ad, mode=mode, sample_rate=sample_rate)
     return ad
 
 
-def custom_message_passing(adata: AnnData, mode: str = "l1_norm") -> AnnData:
+def custom_message_passing(adata: AnnData, mode: str = "l1_norm", sample_rate=1) -> AnnData:
     from scipy.linalg import sqrtm
+    from scipy.sparse import csr_matrix
+
+    A = adata.obsp['spatial_connectivities']
+
+    if sample_rate == 0:
+        adata.obsp['spatial_connectivities'] = np.eye(adata.shape[0])
+    elif sample_rate != 1:
+        n_cells = A.shape[0]
+        A_subsampled = np.zeros((n_cells,n_cells))
+
+        for i in range(n_cells):
+            nbr_idxs = A[i].nonzero()[1]
+            n_samples = int(k_cutoff * sample_rate)
+            nbr_idxs_subsampled = np.random.choice(nbr_idxs, size=n_samples, replace=False)
+            for j in nbr_idxs_subsampled:
+                A_subsampled[i,j] = 1
+        print(len(nbr_idxs), flush=True)
+        print(n_samples, flush=True)
+        adata.obsp['spatial_connectivities'] = csr_matrix(A_subsampled)
+    else:
+        adata.obsp['spatial_connectivities'] = csr_matrix(adata.obsp['spatial_connectivities'])
 
     if mode == "l1_norm":
         A = adata.obsp["spatial_connectivities"]
