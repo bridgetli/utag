@@ -2,7 +2,7 @@ import warnings
 
 from scipy.sparse import SparseEfficiencyWarning
 
-from utag.segmentation import utag
+from utag.segmentation import utag_mod
 
 
 try:
