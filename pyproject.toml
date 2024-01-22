@@ -22,7 +22,7 @@ classifiers = [
     "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
-#license = "gpt3"
+license = {text = "GPL3"}
 requires-python = ">=3.5"
 # not yet supported by pip!
 dependencies = [
