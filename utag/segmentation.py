@@ -236,11 +236,10 @@ def custom_message_passing(adata: AnnData, mode: str = "l1_norm", sample_rate=1)
     from scipy.linalg import sqrtm
     from scipy.sparse import csr_matrix
 
-    A = adata.obsp['spatial_connectivities']
-
     if sample_rate == 0:
         adata.obsp['spatial_connectivities'] = np.eye(adata.shape[0])
-    elif sample_rate != 1:
+    elif sample_rate < 1:
+        A = adata.obsp['spatial_connectivities']
         n_cells = A.shape[0]
         A_subsampled = np.zeros((n_cells,n_cells))
 
@@ -253,15 +252,11 @@ def custom_message_passing(adata: AnnData, mode: str = "l1_norm", sample_rate=1)
         print(len(nbr_idxs), flush=True)
         print(n_samples, flush=True)
         adata.obsp['spatial_connectivities'] = csr_matrix(A_subsampled)
-    else:
-        adata.obsp['spatial_connectivities'] = csr_matrix(adata.obsp['spatial_connectivities'])
 
     if mode == "l1_norm":
         A = adata.obsp["spatial_connectivities"]
         A_mod = np.asarray(A + np.eye(A.shape[0]))
-
         from sklearn.preprocessing import normalize
-
         affinity = normalize(A_mod, axis=1, norm="l1")
     else:
         # Plain A_mod multiplication
